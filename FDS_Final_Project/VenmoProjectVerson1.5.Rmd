@@ -1,0 +1,326 @@
+---
+title: "Project_Venmo"
+author: "Fenil"
+date: "May 7, 2016"
+output: pdf_document
+---
+
+
+
+#total is the main data frame where all the data from the venmo api combines.
+#The link https://venmo.com/api/v5/public is the api link from where the venmo data starts
+#each link file is a json document which contains exactly 20 transactions which we canfind under "data" document in each link
+#at the top of the each json document we have two links named "next" and "previous" from which we can go back and forth to the venmo data
+#each transactions mainly divides in four sub json documents
+#1)payment information in the first sub document
+#2)actor(source) information in the actor subdocument
+#3)tramsaction+targer information in the transactions subdicument
+#4)likes of the transaction in the likes sub document
+
+
+#---------------------To get the data from intial api link https://venmo.com/api/v5/public--------------------#
+
+total<-NULL  
+#install.packages(rjson)
+library(rjson)
+JsonData <- "https://venmo.com/api/v5/public"
+JsonData2<-fromJSON(file=JsonData)
+
+#Jsondata1 to fetch all the data from the inital api page
+
+Jsondata1<-JsonData2[['data']]  
+
+
+#install.packages("gdata")
+library(gdata) 
+# for the trim function to trim the data which we got
+grabInfo<-function(var){
+  print(paste("Variable", var, sep=" "))  
+  sapply(Jsondata1, function(x) returnData(x, var)) 
+}
+
+returnData<-function(x, var){
+  if(!is.null( x[[var]])){
+    return( trim(x[[var]]))
+  }else{
+    return(NA)
+  }
+}
+
+#Below data frame named fmDataDF I've created to get the payment information and information
+fmDataDF<-data.frame(sapply(c(1,2,3,4,5,6,7,8,11,12,13,14), grabInfo), stringsAsFactors=FALSE)
+
+#Now as the actor and transactions are subdocument in the each of the venmo api link,I have created two seperate frames names actor and data to hold the actor information and transactions to hold transactions+target information 
+
+actor<-data.frame(sapply(Jsondata1,function(x) x[[9]]))
+transactions<-(sapply(Jsondata1,function(x) x[[10]]))
+
+#transactiondf<-data.frame(transactions[1])
+transactiondf<-data.frame()
+
+#likes data frame I have created to hold the data for the likes subdocument in each of the link
+
+likes<-data.frame(sapply(Jsondata1,function(x) x[[15]]))
+#fmDataDF<-data.frame(sapply(c(1,2,3,4,5,6,7,8), grabInfo), stringsAsFactors=FALSE)
+
+#createing a new column called ID which has length 1...20 so that in the end we can combine the individual data frame with this common column ID
+fmDataDF["ID"]<-seq(from=1,to=length(fmDataDF$X1),by=1)
+
+#Taking transpose of the data frame actor so that further we can combine the actor anf the transaction data frame
+final_df <- as.data.frame(t(actor))
+
+#createing a new column called ID which has length 1...20 so that in the end we can combine the individual data frame with this common column ID
+final_df["ID"]<-seq(from=1,to=20,by=1)
+
+#final_df1 <- as.data.frame(t(transactions))
+#final_df1["ID"]<-seq(from=1,to=20,by=1)
+
+#As there are 20 transactons I'm interating toeach ad every transaction and row bind that transactions into transactiondf data frame
+i<-1
+for(i in 1:20)
+{
+ transactiondf<-rbind(transactiondf,data.frame(transactions[i]))
+}
+transactiondf["ID"]<-seq(from=1,to=20,by=1)
+
+final_df2 <- as.data.frame(t(likes))
+
+#createing a new column called ID which has length 1...20 so that in the end we can combine the individual data frame with this common column ID
+final_df2["ID"]<-seq(from=1,to=20,by=1)
+
+#merging the final_df and fmDataDF frames by common column ID and put the result into main dataframe total
+total<- merge(final_df,fmDataDF,by="ID")
+#merging the total and transactiondf frames by common column ID and put the result into main dataframe total
+total <- merge(total,transactiondf,by="ID")
+#merging the total and final_df2 frames by common column ID and put the result into main dataframe total
+total<- merge(total,final_df2,by="ID")
+
+
+
+#2-----------------------To get further data from API,Cleaning of the data and generating final data frame to hold the whole data-------#
+
+JsonData <- "https://venmo.com/api/v5/public"
+JsonData2<-fromJSON(file=JsonData)
+
+#now I've taken nextlink from the starting API page to get the link of the page where the further data resides
+nextlink<-JsonData2[['paging']][1]
+#cnt<-0
+
+#We have to go to every page till we get the null in nextlink of the page which means end of the data
+#note-----becuase of the API limit or the internet connection pinging limit,We can not able to get the whole data but if we can access
+#intranet of the Venmo or if we can have large limit from the VenmoAPI then by using this approach we can able to get the whole data
+
+#Write now for testing the functionality of my project,I'm running the below funntionality by taking around 74k rows of data
+
+while(!is.null(nextlink$`next`))
+{
+JsonData<-nextlink$`next`
+print(JsonData)
+JsonData2<-fromJSON(file=JsonData)
+#now I've taken nextlink from the  page to get the link of the page where the further data resides
+nextlink<-JsonData2[['paging']][1]
+
+#Jsondata1 to fetch all the data from the  page
+
+Jsondata1<-JsonData2[['data']]
+
+grabInfo<-function(var){
+  print(paste("Variable", var, sep=" "))  
+  sapply(Jsondata1, function(x) returnData(x, var)) 
+}
+
+returnData<-function(x, var){
+  if(!is.null( x[[var]])){
+    return( trim(x[[var]]))
+  }else{
+    return(NA)
+  }
+}
+#Below data frame named fmDataDF I've created to get the payment information and information
+fmDataDF<-data.frame(sapply(c(1,2,3,4,5,6,7,8,11,12,13,14), grabInfo), stringsAsFactors=FALSE)
+
+#Now as the actor and transactions are subdocument in the each of the venmo api link,I have created two seperate frames names actor and data to hold the actor information and transactions to hold transactions+target information 
+
+actor<-data.frame(sapply(Jsondata1,function(x) x[[9]]))
+transactions<-(sapply(Jsondata1,function(x) x[[10]]))
+
+
+#We have done the data cleaning part during our implementation only..As there are many transactions where the transactions subdocument in
+#the Data Json Document has just only one attribute which is as follows
+
+#"transactions":[{target:"a phone number"}]
+
+#As we are not sure if it is a fraud transaction or the further data is not available because of some technical problems we are not
+#taking that transactions as a suitable record in our further analysis
+
+
+if(ncol(data.frame(transactions))!=200)
+{
+#If we encounter the  transaction with just one attribute we are skipping that transactions
+next  
+}
+transactiondf<-data.frame()
+
+
+#likes data frame I have created to hold the data for the likes subdocument in each of the link
+likes<-data.frame(sapply(Jsondata1,function(x) x[[15]]))
+#fmDataDF<-data.frame(sapply(c(1,2,3,4,5,6,7,8), grabInfo), stringsAsFactors=FALSE)
+fmDataDF["ID"]<-seq(from=1,to=length(fmDataDF$X1),by=1)
+
+
+#Taking transpose of the data frame actor so that further we can combine the actor anf the transaction data frame
+final_df <- as.data.frame(t(actor))
+
+#createing a new column called ID which has length 1...20 so that in the end we can combine the individual data frame with this common column ID
+final_df["ID"]<-seq(from=1,to=20,by=1)
+
+#final_df1 <- as.data.frame(t(transactions))
+#final_df1["ID"]<-seq(from=1,to=20,by=1)
+i<-1
+#As there are 20 transactons I'm interating toeach ad every transaction and row bind that transactions into transactiondf data frame
+for(i in 1:20)
+{
+   transactiondf<-rbind(transactiondf,data.frame(transactions[i]))
+}
+#createing a new column called ID which has length 1...20 so that in the end we can combine the individual data frame with this common column ID
+transactiondf["ID"]<-seq(from=1,to=20,by=1)
+
+final_df2 <- as.data.frame(t(likes))
+#createing a new column called ID which has length 1...20 so that in the end we can combine the individual data frame with this common column ID
+final_df2["ID"]<-seq(from=1,to=20,by=1)
+
+total1<-NULL
+
+#merging the final_df and fmDataDF frames by common column ID and put the result into main dummy dataframe total1
+total1<- merge(final_df,fmDataDF,by="ID")
+#merging the total1 and transactions frames by common column ID and put the result into main dummy dataframe total1
+total1 <- merge(total1,transactiondf,by="ID")
+
+#merging the total1 and final_df2 frames by common column ID and put the result into main dummy dataframe total1
+total1<- merge(total1,final_df2,by="ID")
+
+#Finally after completing the loop we have all the data we have require in our main dataframe Total
+total<-rbind(total,total1)
+#cnt<-cnt+1
+}
+
+#Note---------If it stops becuase of the ping or API timeout and if we want more data,then please re run the program from line 100 with the last API link(In which we got error) appears into the console ans paste that link ito line number 102
+
+#--------------The data is fetched which we want to do further analysis------
+#execute only once just to chane the column variables in our total frame
+colnames(total)[12]<-"payment_id"
+colnames(total)[13]<-"permalink"
+colnames(total)[14]<-"via"
+colnames(total)[15]<-"action_links"
+colnames(total)[16]<-"story_id"
+colnames(total)[17]<-"comments"
+colnames(total)[18]<-"updated_time"
+colnames(total)[19]<-"audience"
+colnames(total)[20]<-"created_time"
+colnames(total)[21]<-"mentions"
+colnames(total)[22]<-"message"
+colnames(total)[23]<-"type"
+
+#-------------------Forming Word Cloud-------------------------#
+library(tm)
+library(SnowballC)
+library(wordcloud)
+#converting the dataframe columns from class factor to class character so that we can compute some textformation for our analysis
+total1 <- data.frame(lapply(total, as.character), stringsAsFactors=FALSE)
+
+#after converting dataframe to class character,we are encoding message column of the data frame total1 to ASCII just to get the
+#english readable characters to form word cloud
+
+x1<-iconv(total1$message, "latin1", "ASCII", sub="")
+jeopCorpus <- Corpus(VectorSource(x1))
+jeopCorpus <- tm_map(jeopCorpus, PlainTextDocument)
+
+#We are removing the punctuation and english stopwords from our consideration to get the accurate results.
+#Note-Please excecute below lines one after another....
+
+jeopCorpus <- tm_map(jeopCorpus, removePunctuation)
+jeopCorpus <- tm_map(jeopCorpus, removeWords, stopwords('english'))
+jeopCorpus <- tm_map(jeopCorpus, stemDocument)
+
+#We are forming the word cloud now
+wordcloud(jeopCorpus, max.words = 200, random.order = FALSE)
+
+#-------------to_get_frequency_of_words-----------
+
+#Created documentterm_matrix to get frequency of each word appearing in our dataset after cleaning
+dtm <- DocumentTermMatrix(jeopCorpus)
+dtm2 <- as.matrix(dtm)
+#We are summing up the count column where we find same word in out dataframe  
+frequency <- colSums(dtm2)
+frequency <- sort(frequency, decreasing=TRUE)
+frequency1<-as.data.frame(frequency)
+
+#For viewing the frequency of each word in column message in our dataframe total
+View(frequency1)
+ 
+ 
+#export to excel by using append mode in write.csv
+
+totaldata<- data.frame(lapply(total, as.character), stringsAsFactors=FALSE)
+write.csv(totaldata,"VenmoData.csv",append=T)
+
+
+#----------------Generating Network for perticular user----------------
+
+#As we have so many source and target,we can not able to generate network for all of the users.So we restricted our network to perticular
+#user by taking the username from enduser who wants to see the network of a perticular username 
+
+graphdf<-data.frame(as.character(total$username),as.character(total$target.username))
+colnames(graphdf)<-c("source","target")
+
+require(sqldf)
+#destinationnodenames<-sqldf("select target from graphdf where source='Nick-Pataky'")
+
+#Withhow many target user a perticular user have a transaction
+
+countof_src_to_trg<-sqldf("select source,count(*) from graphdf group by source order by count(*) desc")
+View(countof_src_to_trg)
+#Created a function to read username
+
+readusername <- function()
+{ 
+  n <- readline(prompt="Enter a username: ")
+  return(n)
+}
+
+#Taking input from user
+userinput<-readusername()
+
+##Checking whether the username entered by the end user is in our dataframe or not?
+countofresult<-sqldf(sprintf("select count(*) from graphdf where source='%s'",userinput))
+
+countmain<-as.numeric(countofresult$`count(*)`)
+
+#If count of the query is zero means that we don't have that user in our dataframe...so then we are asking enduser to put a valid username which is there in data frame
+
+if(countmain==0){print("The username which you have entered is not in the dataset..Please enter a username(source) which is in your dataset..if you want to find valid username please write command View(graphdf)")}
+
+#-------------Please stop if countmain is 0 and please put a username which is there in datframe called graphdf-------------#
+
+
+#If you can get countmain zero,please re run the program from line no 286 and input a valid username
+
+destinationnodenames<-sqldf(sprintf("select source,target from graphdf where source='%s'",userinput))
+
+colnames(total1)[1]<-"Updated_ID"
+message1<-sqldf(sprintf("select message from total1 where username='%s'",userinput))
+l=list(destinationnodenames,message1)
+#To merge the transactions woth the message for a perticular username
+x1<-Reduce(merge,lapply(l,function(x) data.frame(x,rn=row.names(x))))
+View(x1)
+
+#To generate a network between source and target I created a data called network
+networkdata<-data.frame(destinationnodenames$source,destinationnodenames$target)
+library(networkD3)
+
+#Visulalizing the netowrk 
+#If we have more than one tranasaction between the same source and target we can observe that the edge will be dark between that two nodes which connecting them
+simpleNetwork(networkdata,width=500,fontSize=12)
+ 
+ 
+ 
